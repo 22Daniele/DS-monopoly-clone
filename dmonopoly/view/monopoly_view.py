@@ -166,46 +166,42 @@ class MonopolyView:
 
     def _render_buttons(self, nickname: str):
         """Disegna i bottoni solo se è il mio turno e in base alle azioni permesse."""
-        # Svuotiamo i bottoni al frame corrente
         self._active_buttons.clear()
 
         current_turn_player = self._game_state.get("turn")
         allowed_actions = self._game_state.get("allowed_actions", [])
 
-        # Se non è il mio turno, non disegno nulla e mi fermo qui
+        start_x = 800
+        start_y = 530
+        btn_width = 120
+        btn_height = 50
+        spacing = 10
+
+        if self._game_state['status'] == 'LOBBY':
+            rect = pygame.Rect(start_x, start_y, btn_width, btn_height)
+            pygame.draw.rect(self.screen, (50, 200, 50), rect)
+            text_surf = self.font.render("ready", True, (255, 255, 255))
+            text_rect = text_surf.get_rect(center=rect.center)
+            self.screen.blit(text_surf, text_rect)
+            self._active_buttons["ready"] = rect
+            return
+
         if current_turn_player != nickname:
             return
 
-        # Impostazioni grafiche di base per i bottoni
-        start_x = 850  # Mettiamoli nel pannello laterale (aggiusta le coordinate)
-        start_y = 600
-        btn_width = 150
-        btn_height = 50
-        spacing = 20
-
         # Disegna un bottone per ogni azione permessa
         for i, action_name in enumerate(allowed_actions):
-            # Calcola la posizione
-            x = start_x
-            y = start_y + (i * (btn_height + spacing))
-
-            # Crea il rettangolo matematico
+            x = start_x + (i * (btn_width + spacing))
+            y = start_y
             rect = pygame.Rect(x, y, btn_width, btn_height)
-
-            # Disegna il rettangolo (es. verde)
             pygame.draw.rect(self.screen, (50, 200, 50), rect)
-
-            # Disegna il testo centrato
             text_surf = self.font.render(action_name, True, (255, 255, 255))
             text_rect = text_surf.get_rect(center=rect.center)
             self.screen.blit(text_surf, text_rect)
-
-            # Memorizza il rettangolo per il controllo dei click!
             self._active_buttons[action_name] = rect
 
     def get_button(self, pos: tuple[int, int]):
         """Restituisce il nome dell'azione se il click cade dentro un bottone attivo."""
-        # Controlla tutti i bottoni che abbiamo salvato durante il render
         for action_name, rect in self._active_buttons.items():
             if rect.collidepoint(pos):
                 return action_name

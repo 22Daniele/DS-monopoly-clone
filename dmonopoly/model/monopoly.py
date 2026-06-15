@@ -145,6 +145,7 @@ class Player:
 class Monopoly:
     STARTING_PROPERTIES = 0
     def __init__(self):
+        self._players_ready = []
         self._board = Board()
         self._turn: int | None = None
         self._status = "LOBBY"
@@ -159,6 +160,11 @@ class Monopoly:
         player = self._get_player(nickname)
         if player:
             self._players.remove(player)
+
+    def player_ready(self, nickname):
+        self._players_ready.append(nickname)
+        if len(self._players_ready) >= 2 and len(self._players_ready) == len(self._players):
+            self.start()
 
     def start(self):
         self._turn = 0

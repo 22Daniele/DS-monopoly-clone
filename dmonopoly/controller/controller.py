@@ -4,14 +4,13 @@ from model.monopoly import Monopoly
 from view.monopoly_view import MonopolyView
 
 class PlayerEvent(Enum):
+    READY = "ready"
     JOIN = "join"
     QUIT = "quit"
     BUY = "buy"
     ROLL = "roll"
     BUILD = "build"
     END_TURN = "end_turn"
-
-
 
 class ServerController:
     def __init__(self, game: Monopoly):
@@ -27,6 +26,9 @@ class ServerController:
             case PlayerEvent.QUIT:
                 self._handle_quit(player)
                 log = "ha abbandonato la partita."
+            case PlayerEvent.READY:
+                self._handle_ready(player)
+                log = "è pronto"
             case PlayerEvent.BUY:
                 prop = int(data.get("property", ""))
                 self._handle_buy(player, prop)
@@ -67,6 +69,10 @@ class ServerController:
     def _handle_buy(self, nickname: str, property_idx: int):
         self._game.buy_property(nickname, property_idx)
 
+    def _handle_ready(self, nickname: str):
+        self._game.player_ready(nickname)
+
+
 class ClientController:
     def __init__(self, view: MonopolyView):
         self._view = view
@@ -81,6 +87,8 @@ class ClientController:
 
     def _handle_click(self, pos, nickname: str):
         button_pressed = self._view.get_button(pos)
+        if button_pressed == "ready":
+            return {"type": "ready", "payload": {"nickname": nickname}}
         if button_pressed == "roll":
             return {"type": "roll", "payload": {"nickname": nickname}}
         elif button_pressed == "buy":
