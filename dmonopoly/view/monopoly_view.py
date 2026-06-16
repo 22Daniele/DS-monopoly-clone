@@ -41,14 +41,6 @@ class MonopolyView:
         self.font_log = pygame.font.Font(None, 22)
         self.font = pygame.font.Font(None, 36)
 
-        self.SPACE_COORDS = {
-            0: (750, 750),
-            1: (680, 750),
-            2: (660, 750),
-            3: (640, 750),
-            4: (620, 750),
-        }
-
     def set_game_state(self, game_state: dict):
         self._game_state = game_state
 
@@ -90,16 +82,33 @@ class MonopolyView:
         players = self._game_state.get("players", [])
         for i, player in enumerate(players):
             pos = player.get("position", 0)
-            x, y = self.SPACE_COORDS.get(pos, (400, 400))  # Default al centro se non mappata
+            x, y = self._get_space_position(pos)
 
             # Applichiamo un minuscolo offset se più pedine sono sulla stessa casella
-            offset_x = (i % 2) * 10 - 5
-            offset_y = (i // 2) * 10 - 5
+            offset_x = (i % 2) * 4 - 2
+            offset_y = (i // 2) * 4 - 2
 
             color = self.COLORS["players"][i % len(self.COLORS["players"])]
             pygame.draw.circle(self.screen, color, (x + offset_x, y + offset_y), 12)
             # Bordino nero per renderle più visibili
             pygame.draw.circle(self.screen, (0, 0, 0), (x + offset_x, y + offset_y), 12, 2)
+
+    def _get_space_position(self, space_idx: int):
+        start_x, start_y = (750, 750)
+        spacing = 70
+        if space_idx <= 10:
+            new_x = start_x - spacing * space_idx
+            new_y = start_y
+        elif 10 < space_idx <= 20:
+            new_x = start_x - spacing * 10
+            new_y = start_y - spacing * (space_idx - 10)
+        elif 20 < space_idx <= 30:
+            new_x = start_x - spacing * -(space_idx - 30)
+            new_y = start_y - spacing * 10
+        else:
+            new_x = start_x
+            new_y = start_y - spacing * -(space_idx - 40)
+        return new_x, new_y
 
     def _render_player_info(self):
         """Disegna il pannello di destra con i bilanci e il turno attuale."""
