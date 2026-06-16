@@ -102,7 +102,7 @@ class Player:
 
     def roll(self):
         dice = self._random.randint(2, 12)
-        self._position = (self._position + dice) % 36
+        self._position = (self._position + dice) % 40
         return self._position, dice
 
     def add_property(self, property_idx):
@@ -184,7 +184,10 @@ class Monopoly:
             return False
         return self._board.get_space(property_idx).build_house(n)
 
-    def buy_property(self, nickname, property_idx):
+    def buy_property(self, nickname):
+        player = self._get_player(nickname)
+        if player:
+            property_idx = player.get_state()["position"]
         price = self._board.get_space(property_idx).get_price()
         player = self._get_player(nickname)
         if player:
@@ -250,12 +253,12 @@ class Monopoly:
         else:
             allowed_actions.append("end_turn")
             if len(current_player.get_properties()) > 0:
-                allowed_actions.append("BUILD")
+                allowed_actions.append("build")
             pos = current_player.get_state()["position"]
             if self._board.is_property(pos):
                 owner = self._board.get_property_owner(pos)
                 if not owner:
                     price = self._board.get_space(pos).get_price()
                     if current_player.can_afford(price):
-                        allowed_actions.append("BUY")
+                        allowed_actions.append("buy")
         return allowed_actions

@@ -30,9 +30,8 @@ class ServerController:
                 self._handle_ready(player)
                 log = "è pronto"
             case PlayerEvent.BUY:
-                prop = int(data.get("property", ""))
-                self._handle_buy(player, prop)
-                log = f"ha comprato la proprietà {prop}."
+                self._handle_buy(player)
+                log = f"ha comprato la proprietà."
             case PlayerEvent.BUILD:
                 prop = int(data.get("property", ""))
                 qty = data.get("quantity", 0)
@@ -66,8 +65,8 @@ class ServerController:
     def _handle_end_turn(self):
         self._game.next_turn()
 
-    def _handle_buy(self, nickname: str, property_idx: int):
-        self._game.buy_property(nickname, property_idx)
+    def _handle_buy(self, nickname: str):
+        self._game.buy_property(nickname)
 
     def _handle_ready(self, nickname: str):
         self._game.player_ready(nickname)
