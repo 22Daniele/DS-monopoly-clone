@@ -21,28 +21,19 @@ class ServerController:
         player = data.get("nickname", "Sconosciuto")
         match event:
             case PlayerEvent.JOIN:
-                self._handle_join(player)
-                log = "è entrato in partita."
+                log = self._handle_join(player)
             case PlayerEvent.QUIT:
-                self._handle_quit(player)
-                log = "ha abbandonato la partita."
+                log = self._handle_quit(player)
             case PlayerEvent.READY:
-                self._handle_ready(player)
-                log = "è pronto"
+                log = self._handle_ready(player)
             case PlayerEvent.BUY:
-                self._handle_buy(player)
-                log = f"ha comprato la proprietà."
+                log = self._handle_buy(player)
             case PlayerEvent.BUILD:
-                prop = int(data.get("property", ""))
-                qty = data.get("quantity", 0)
-                self._handle_build(player, prop, qty)
-                log = f"ha costruito {qty} case su {prop}."
+                log = self._handle_build(player)
             case PlayerEvent.ROLL:
-                dice_result = self._handle_roll(player)
-                log = f"ha tirato i dadi e ha fatto {dice_result}."
+                log = self._handle_roll(player)
             case PlayerEvent.END_TURN:
-                self._handle_end_turn()
-                log = "ha terminato il turno."
+                log = self._handle_end_turn()
         return self._create_event_update_state(f"Player {player}: {log}")
 
     def _create_event_update_state(self, event: str):
@@ -51,25 +42,25 @@ class ServerController:
         return state
 
     def _handle_join(self, nickname: str):
-        self._game.add_player(nickname)
+        return self._game.add_player(nickname)
 
     def _handle_quit(self, nickname: str):
-        self._game.remove_player(nickname)
+        return self._game.remove_player(nickname)
 
-    def _handle_build(self, nickname: str, property_idx: int, quantity):
-        self._game.build_houses(nickname, property_idx, quantity)
+    def _handle_build(self, nickname: str):
+        return self._game.build_houses(nickname)
 
     def _handle_roll(self, nickname: str):
         return self._game.roll_dice(nickname)
 
     def _handle_end_turn(self):
-        self._game.next_turn()
+        return self._game.next_turn()
 
     def _handle_buy(self, nickname: str):
-        self._game.buy_property(nickname)
+        return self._game.buy_property(nickname)
 
     def _handle_ready(self, nickname: str):
-        self._game.player_ready(nickname)
+        return self._game.player_ready(nickname)
 
 
 class ClientController:

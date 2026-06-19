@@ -57,7 +57,7 @@ class MonopolyView:
             self._render_loading()
 
         pygame.display.flip()
-        self.clock.tick(60)
+        self.clock.tick(30)
 
     def _render_houses(self):
         """Disegna le casette leggendo direttamente da self._game_state."""
@@ -70,8 +70,7 @@ class MonopolyView:
             houses = space.get("houses", 0)
 
             if houses > 0:
-                # Recupera le coordinate, default (0,0) se l'indice non è mappato
-                x, y = self.SPACE_COORDS.get(idx, (0, 0))
+                x, y = self._get_space_position(idx)
 
                 for i in range(houses):
                     rect = pygame.Rect(x - 20 + (i * 12), y - 30, 10, 10)

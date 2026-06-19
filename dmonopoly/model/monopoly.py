@@ -30,13 +30,10 @@ class PropertySpace(Space):
     def get_price(self):
         return self._price
 
-    def build_house(self, n: int):
-        if self._houses == 4 and n == 1:
-            self._houses += n
-            return True
-        if self._houses + n > 4:
+    def build_house(self):
+        if self._houses == 5:
             return False
-        self._houses += n
+        self._houses += 1
         return True
 
     def get_owner(self):
@@ -93,7 +90,7 @@ class Player:
         self._bankruptcy = False
         self._nickname = nickname
         self._position = 0
-        self._balance = 500
+        self._balance = 5000
         self._properties = []
         self._random = Random()
 
@@ -143,7 +140,7 @@ class Player:
 
 
 class Monopoly:
-    STARTING_PROPERTIES = 0
+    STARTING_PROPERTIES = 10
     def __init__(self):
         self._players_ready = []
         self._board = Board()
@@ -151,24 +148,31 @@ class Monopoly:
         self._status = "LOBBY"
         self._players: list[Player] = []
         self._has_rolled = False
+        self._alive_players = 0
 
     def add_player(self, nickname: str):
         player = Player(nickname)
         self._players.append(player)
+        return f"{nickname} joined the game"
 
     def remove_player(self, nickname: str):
         player = self._get_player(nickname)
         if player:
             self._players.remove(player)
+            return f"{nickname} quit the game"
+        return "error: no player found"
 
     def player_ready(self, nickname):
         self._players_ready.append(nickname)
         if len(self._players_ready) >= 2 and len(self._players_ready) == len(self._players):
             self.start()
+            return f"{nickname} is ready.\nEveryone is ready!\nGame start."
+        return f"{nickname} is ready"
 
     def start(self):
         self._turn = 0
         self._assign_random_properties()
+        self._alive_players = len(self._players)
         self._status = "PLAYING"
 
     def running(self):
@@ -177,31 +181,39 @@ class Monopoly:
     def next_turn(self):
         self._turn = (self._turn + 1) % len(self._players)
         self._has_rolled = False
+        return f"end turn"
 
-    def build_houses(self, nickname: str, property_idx: int, n: int):
+    def build_houses(self, nickname: str):
+        property_idx = self._get_player(nickname).get_state()["position"]
         owner = self._board.get_property_owner(property_idx)
         if nickname != owner:
-            return False
-        return self._board.get_space(property_idx).build_house(n)
+            return "can't build on someone else properties"
+        player = self._get_player(nickname)
+        space = self._board.get_space(property_idx)
+        if space.build_house():
+            player.pay(50)
+            return f"{nickname} build the {space.get_state()['houses']}th house on {space.get_state()['name']}"
+        return "can't build more than 5 houses"
 
     def buy_property(self, nickname):
         player = self._get_player(nickname)
         if player:
             property_idx = player.get_state()["position"]
-        price = self._board.get_space(property_idx).get_price()
-        player = self._get_player(nickname)
-        if player:
+            space = self._board.get_space(property_idx)
+            price = space.get_price()
             player.buy_property(property_idx, price)
             self._board.get_space(property_idx).assign(player.get_nickname())
+            return f"bought {space.get_state()["name"]} by {player.get_nickname()}"
+        return "error: no player found"
 
     def roll_dice(self, nickname: str):
         player = self._get_player(nickname)
         if player and not self._has_rolled:
             new_position, dice = player.roll()
             self._has_rolled = True
-            self._space_action(new_position, player)
-            return dice
-        return 0
+            log = self._space_action(new_position, player)
+            return f"rolled dices and got {dice}. " + log
+        return "error: player cannot roll dice"
 
     def get_state(self):
         return {
@@ -220,19 +232,33 @@ class Monopoly:
 
     def _space_action(self, position: int, player: Player):
         if self._board.is_property(position):
-            owner = self._board.get_property_owner(position)
-            if not owner:
-                pass #can purchase
-            elif owner != player.get_nickname():
-                amount = self._board.get_space(position).get_price()
-                owner = self._get_player(owner)
+            owner_nickname = self._board.get_property_owner(position)
+            if not owner_nickname:
+                return "property can be bought"
+            elif owner_nickname != player.get_nickname():
+                log = ""
+                space = self._board.get_space(position)
+                amount = space.get_price()
+                rent = space.get_state()["houses"] * amount
+                amount = amount + rent
+                owner = self._get_player(owner_nickname)
                 if owner:
                     owner.get_paid(amount)
+                    log += f" {owner_nickname} got paid {amount}"
                 if not player.pay(amount):
                     for prop_idx in player.get_properties():
                         self._board.get_space(prop_idx).remove_owner()
+                    self._alive_players -= 1
+                    log += f" {player.get_nickname()} lost"
+                    if self._alive_players == 1:
+                        self._end()
+                        log += f" game ended"
+                else:
+                    log += f" {player.get_nickname()} paid {amount}"
+                return log
+            return f" {player.get_nickname()} is on his own property"
         else:
-            pass #if chest, if chance, if jail, ecc...
+            return "not yet implemented"
 
     def _assign_random_properties(self):
         shuffled = self._board.get_random_properties(len(self._players) * self.STARTING_PROPERTIES)
@@ -252,8 +278,9 @@ class Monopoly:
             allowed_actions.append("roll")
         else:
             allowed_actions.append("end_turn")
-            if len(current_player.get_properties()) > 0:
-                allowed_actions.append("build")
+            if current_player.get_state()["position"] in current_player.get_properties():
+                if current_player.can_afford(50):
+                    allowed_actions.append("build")
             pos = current_player.get_state()["position"]
             if self._board.is_property(pos):
                 owner = self._board.get_property_owner(pos)
@@ -262,3 +289,6 @@ class Monopoly:
                     if current_player.can_afford(price):
                         allowed_actions.append("buy")
         return allowed_actions
+
+    def _end(self):
+        self._status = "CLOSED"
