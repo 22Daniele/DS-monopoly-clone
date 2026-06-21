@@ -142,7 +142,7 @@ class Player:
 class Monopoly:
     STARTING_PROPERTIES = 10
     def __init__(self):
-        self._players_ready = []
+        self._players_ready = set()
         self._board = Board()
         self._turn: int | None = None
         self._status = "LOBBY"
@@ -163,7 +163,7 @@ class Monopoly:
         return "error: no player found"
 
     def player_ready(self, nickname):
-        self._players_ready.append(nickname)
+        self._players_ready.add(nickname)
         if len(self._players_ready) >= 2 and len(self._players_ready) == len(self._players):
             self.start()
             return f"{nickname} is ready.\nEveryone is ready!\nGame start."
