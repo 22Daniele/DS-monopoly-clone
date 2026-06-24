@@ -4,6 +4,8 @@ from model.monopoly import Monopoly
 from view.monopoly_view import MonopolyView
 
 class PlayerEvent(Enum):
+    RECONNECTION_TIMEOUT = "reconnection_timeout"
+    DISCONNECTION = "disconnection"
     READY = "ready"
     JOIN = "join"
     QUIT = "quit"
@@ -18,7 +20,7 @@ class ServerController:
 
     def handle_event(self, event: PlayerEvent, data: dict):
         log = ""
-        player = data.get("nickname", "Sconosciuto")
+        player = data.get("nickname", "SISTEMA")
         match event:
             case PlayerEvent.JOIN:
                 log = self._handle_join(player)
@@ -34,7 +36,11 @@ class ServerController:
                 log = self._handle_roll(player)
             case PlayerEvent.END_TURN:
                 log = self._handle_end_turn()
-        return self._create_event_update_state(f"Player {player}: {log}")
+            case PlayerEvent.DISCONNECTION:
+                log = self._handle_disconnection(player)
+            case PlayerEvent.RECONNECTION_TIMEOUT:
+                log = self._handle_reconnection_timeout()
+        return self._create_event_update_state(f"{player}: {log}")
 
     def _create_event_update_state(self, event: str):
         state = self._game.get_state()
@@ -42,6 +48,9 @@ class ServerController:
         return state
 
     def _handle_join(self, nickname: str):
+        if nickname in self._game.disconnected_players():
+            print(f"Player {nickname} is reconnected")
+            return self._game._reconnect_player(nickname)
         return self._game.add_player(nickname)
 
     def _handle_quit(self, nickname: str):
@@ -61,6 +70,12 @@ class ServerController:
 
     def _handle_ready(self, nickname: str):
         return self._game.player_ready(nickname)
+
+    def _handle_disconnection(self, nickname: str):
+        return self._game.player_disconnection(nickname)
+
+    def _handle_reconnection_timeout(self):
+        return self._game.reconnection_timeout()
 
 
 class ClientController:

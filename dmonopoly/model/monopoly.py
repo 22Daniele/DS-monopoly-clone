@@ -138,10 +138,14 @@ class Player:
     def get_properties(self):
         return self._properties
 
+    def disconnect(self):
+        self._set_bankruptcy()
+
 
 class Monopoly:
-    STARTING_PROPERTIES = 10
+    STARTING_PROPERTIES = 7
     def __init__(self):
+        self._waiting_for = set()
         self._players_ready = set()
         self._board = Board()
         self._turn: int | None = None
@@ -176,7 +180,7 @@ class Monopoly:
         self._status = "PLAYING"
 
     def running(self):
-        return self._status != "CLOSED"
+        return self._status == "PLAYING"
 
     def next_turn(self):
         self._turn = (self._turn + 1) % len(self._players)
@@ -219,6 +223,7 @@ class Monopoly:
         return {
             "status": self._status,
             "players": [p.get_state() for p in self._players],
+            "waiting_for": list(self._waiting_for) if self._waiting_for else None,
             "turn": self._players[self._turn].get_nickname() if self._turn is not None else None,
             "allowed_actions": self._get_allowed_actions(),
             "board": self._board.get_state()
@@ -292,3 +297,39 @@ class Monopoly:
 
     def _end(self):
         self._status = "CLOSED"
+
+    def player_disconnection(self, nickname):
+        if self._status == "PLAYING":
+            self._status = "PAUSED"
+        self._waiting_for.add(nickname)
+        return f"disconnected {nickname}. Trying to reconnect..."
+
+    def disconnected_players(self):
+        return self._waiting_for
+
+    def reconnection_timeout(self):
+        for nickname in self._waiting_for:
+            player = self._get_player(nickname)
+            if player:
+                player.disconnect()
+                for prop_idx in player.get_properties():
+                    self._board.get_space(prop_idx).remove_owner()
+                self._turn = 0
+                self._players.remove(player)
+                self._alive_players -= 1
+        self._waiting_for.clear()
+        if self._alive_players > 1:
+            return self._restart_game()
+        else:
+            self._end()
+            return "not enough players left -> game ended"
+
+    def _reconnect_player(self, nickname):
+        self._waiting_for.remove(nickname)
+        if not self.disconnected_players():
+            return f"reconnected player {nickname}. "+ self._restart_game()
+        return f"reconnected player: {nickname}. Waiting other disconnected players to reconnect..."
+
+    def _restart_game(self):
+        self._status = "PLAYING"
+        return "game restarted"

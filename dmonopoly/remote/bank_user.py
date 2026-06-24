@@ -16,13 +16,26 @@ class MonopolyBank:
         self._controller = ServerController(self._game)
         self._server = Server(port, self.on_new_connection)
         self._peers: set[Connection] = set()
+        self._connection_to_nickname = {}
+        self._reconnect_timer = None
 
     def on_message_received(self, event, payload, connection, error):
         if event == 'message':
             data = json.loads(payload)
             #deserializza l'evento in eventPlayer
             player_event = PlayerEvent(data["type"])
+            if player_event == PlayerEvent.JOIN:
+                nickname = data["payload"]["nickname"]
+                if nickname in self._connection_to_nickname.values():
+                    #mandare al peer l'errore
+                    print("Nome utente già selezionato, riprova la connessione con un altro nome")
+                    self._peers.remove(connection)
+                    return
+                self._connection_to_nickname[connection] = nickname
             self._send_all(self._controller.handle_event(player_event, data["payload"]))
+        elif event in ('close', 'error'):
+            print(f"[RETE] connessione persa: {error}")
+            self._handle_player_disconnection(connection)
 
     def on_new_connection(self, event, connection, address, error):
         match event:
@@ -58,6 +71,23 @@ class MonopolyBank:
         for connection in self._peers:
             self._send_state(connection, state)
 
+    def _handle_player_disconnection(self, connection):
+        self._peers.remove(connection)
+        nickname = self._connection_to_nickname.pop(connection)
+        if nickname:
+            self._send_all(self._controller.handle_event(PlayerEvent.DISCONNECTION, {"nickname": nickname}))
+            if self._reconnect_timer:
+                self._reconnect_timer.cancel()
+            self._reconnect_timer = threading.Timer(30.0, self._on_reconnect_timeout)
+            self._reconnect_timer.start()
+            print("[SISTEMA] Timer di riconnessione da 30 secondi avviato...")
+
+    def _on_reconnect_timeout(self):
+        if self._game.running():
+            return
+        print("[SISTEMA] Tempo scaduto! Il giocatore non è rientrato. Continuo la partita senza di lui.")
+        self._reconnect_timer = None
+        self._send_all(self._controller.handle_event(PlayerEvent.RECONNECTION_TIMEOUT, {}))
 
 class MonopolyUser:
     def __init__(self, nickname: str, address):
