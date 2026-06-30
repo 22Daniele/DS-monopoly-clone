@@ -114,7 +114,7 @@ class MonopolyView:
         title = self.font_title.render("GIOCATORI", True, self.COLORS["text"])
         self.screen.blit(title, (self.ui_x + 20, 20))
 
-        current_turn = self._game_state.get("turn")
+        current_turn = self._game_state.get("current_turn_nickname")
         players = self._game_state.get("players", [])
 
         y_offset = 80
@@ -176,7 +176,7 @@ class MonopolyView:
         """Disegna i bottoni solo se è il mio turno e in base alle azioni permesse."""
         self._active_buttons.clear()
 
-        current_turn_player = self._game_state.get("turn")
+        current_turn_player = self._game_state.get("current_turn_nickname")
         allowed_actions = self._game_state.get("allowed_actions", [])
 
         start_x = 800

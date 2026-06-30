@@ -5,6 +5,7 @@ import pygame
 
 from controller.controller import ClientController, ServerController, PlayerEvent
 from model.monopoly import Monopoly
+from model.serializer_deserializer import serialize
 from remote import *
 from view.monopoly_view import MonopolyView
 
@@ -47,7 +48,7 @@ class MonopolyBank:
                 self._peers.add(connection)
                 #aggiungi player al game
                 #self._controller.handle_event(event, connection)
-                self._send_state(connection, self._game.get_state())
+                self._send_state(connection, serialize(self._game))
             case 'stop':
                 print(f"Stop listening for new connections")
             case 'error':
@@ -65,15 +66,16 @@ class MonopolyBank:
             self._server.close()
 
     def _send_state(self, connection, state: dict):
-        connection.send(json.dumps(state))
+        connection.send(state)
 
     def _send_all(self, state: dict):
         for connection in self._peers:
             self._send_state(connection, state)
 
     def _handle_player_disconnection(self, connection):
-        self._peers.remove(connection)
-        nickname = self._connection_to_nickname.pop(connection)
+        if connection in self._peers:
+            self._peers.remove(connection)
+        nickname = self._connection_to_nickname.pop(connection, None)
         if nickname:
             self._send_all(self._controller.handle_event(PlayerEvent.DISCONNECTION, {"nickname": nickname}))
             if self._reconnect_timer:

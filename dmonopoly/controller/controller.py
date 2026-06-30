@@ -1,6 +1,8 @@
+import json
 from enum import Enum
 import pygame
 from model.monopoly import Monopoly
+from model.serializer_deserializer import serialize
 from view.monopoly_view import MonopolyView
 
 class PlayerEvent(Enum):
@@ -19,63 +21,58 @@ class ServerController:
         self._game = game
 
     def handle_event(self, event: PlayerEvent, data: dict):
-        log = ""
         player = data.get("nickname", "SISTEMA")
         match event:
             case PlayerEvent.JOIN:
-                log = self._handle_join(player)
+                self._handle_join(player)
             case PlayerEvent.QUIT:
-                log = self._handle_quit(player)
+                self._handle_quit(player)
             case PlayerEvent.READY:
-                log = self._handle_ready(player)
+                self._handle_ready(player)
             case PlayerEvent.BUY:
-                log = self._handle_buy(player)
+                self._handle_buy(player)
             case PlayerEvent.BUILD:
-                log = self._handle_build(player)
+                self._handle_build(player)
             case PlayerEvent.ROLL:
-                log = self._handle_roll(player)
+                self._handle_roll(player)
             case PlayerEvent.END_TURN:
-                log = self._handle_end_turn()
+                self._handle_end_turn()
             case PlayerEvent.DISCONNECTION:
-                log = self._handle_disconnection(player)
+                self._handle_disconnection(player)
             case PlayerEvent.RECONNECTION_TIMEOUT:
-                log = self._handle_reconnection_timeout()
-        return self._create_event_update_state(f"{player}: {log}")
-
-    def _create_event_update_state(self, event: str):
-        state = self._game.get_state()
-        state["last_event"] = event
-        return state
+                self._handle_reconnection_timeout()
+        x = serialize(self._game)
+        return x
 
     def _handle_join(self, nickname: str):
         if nickname in self._game.disconnected_players():
-            print(f"Player {nickname} is reconnected")
-            return self._game._reconnect_player(nickname)
-        return self._game.add_player(nickname)
+            self._game.reconnect_player(nickname)
+        else:
+            self._game.add_player(nickname)
 
     def _handle_quit(self, nickname: str):
-        return self._game.remove_player(nickname)
+        self._game.remove_player(nickname)
 
     def _handle_build(self, nickname: str):
-        return self._game.build_houses(nickname)
+        self._game.build_houses(nickname)
 
     def _handle_roll(self, nickname: str):
-        return self._game.roll_dice(nickname)
+        self._game.roll_dice(nickname)
 
     def _handle_end_turn(self):
-        return self._game.next_turn()
+        self._game.next_turn()
 
     def _handle_buy(self, nickname: str):
-        return self._game.buy_property(nickname)
+        self._game.buy_property(nickname)
 
     def _handle_ready(self, nickname: str):
-        return self._game.player_ready(nickname)
+        self._game.player_ready(nickname)
 
     def _handle_disconnection(self, nickname: str):
-        return self._game.player_disconnection(nickname)
+        self._game.player_disconnection(nickname)
 
     def _handle_reconnection_timeout(self):
-        return self._game.reconnection_timeout()
+        self._game.reconnection_timeout()
 
 
 class ClientController:
