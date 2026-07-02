@@ -1,6 +1,6 @@
-import json
 from enum import Enum
 import pygame
+from checkpoint.checkpoint import *
 from model.monopoly import Monopoly
 from model.serializer_deserializer import serialize
 from view.monopoly_view import MonopolyView
@@ -42,6 +42,8 @@ class ServerController:
             case PlayerEvent.RECONNECTION_TIMEOUT:
                 self._handle_reconnection_timeout()
         x = serialize(self._game)
+        if self._game.status == "CLOSED":
+            delete_checkpoint()
         return x
 
     def _handle_join(self, nickname: str):
@@ -61,6 +63,7 @@ class ServerController:
 
     def _handle_end_turn(self):
         self._game.next_turn()
+        save_checkpoint(self._game)
 
     def _handle_buy(self, nickname: str):
         self._game.buy_property(nickname)

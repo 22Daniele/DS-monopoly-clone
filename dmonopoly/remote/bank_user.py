@@ -1,8 +1,7 @@
 import json
 import time
-
 import pygame
-
+from checkpoint.checkpoint import load_checkpoint
 from controller.controller import ClientController, ServerController, PlayerEvent
 from model.monopoly import Monopoly
 from model.serializer_deserializer import serialize
@@ -13,30 +12,55 @@ from view.monopoly_view import MonopolyView
 class MonopolyBank:
     def __init__(self, port):
         self._running = True
-        self._game = Monopoly()
+        backup_game = load_checkpoint()
+        self._reconnect_timer = None
+        if backup_game:
+            print("[SISTEMA] Checkpoint trovato! Ripristino della partita in corso...")
+            self._game = backup_game
+            self._reconnect_timer = threading.Timer(30.0, self._on_reconnect_timeout)
+            self._reconnect_timer.start()
+            print("[SISTEMA] Avviato timer di recupero server: 30 secondi per il rientro di tutti i giocatori.")
+        else:
+            print("[SISTEMA] Nessun checkpoint trovato. Creo una nuova partita.")
+            self._game = Monopoly()
         self._controller = ServerController(self._game)
         self._server = Server(port, self.on_new_connection)
         self._peers: set[Connection] = set()
         self._connection_to_nickname = {}
-        self._reconnect_timer = None
 
     def on_message_received(self, event, payload, connection, error):
         if event == 'message':
             data = json.loads(payload)
-            #deserializza l'evento in eventPlayer
             player_event = PlayerEvent(data["type"])
             if player_event == PlayerEvent.JOIN:
                 nickname = data["payload"]["nickname"]
-                if nickname in self._connection_to_nickname.values():
-                    #mandare al peer l'errore
-                    print("Nome utente già selezionato, riprova la connessione con un altro nome")
-                    self._peers.remove(connection)
-                    return
+                is_reconnection = nickname in self._game.disconnected_players()
+                if not is_reconnection:
+                    if self._game.status != "LOBBY":
+                        self._reject_connection(connection, "Game already started!")
+                        return
+                    if len(self._game.players) >= 4:
+                        self._reject_connection(connection, "The lobby is full!")
+                        return
+                    if nickname in self._connection_to_nickname.values():
+                        self._reject_connection(connection, "Nickname already in use!")
+                        return
                 self._connection_to_nickname[connection] = nickname
             self._send_all(self._controller.handle_event(player_event, data["payload"]))
+            if self._game.status == "PLAYING" and self._reconnect_timer:
+                self._reconnect_timer.cancel()
+                self._reconnect_timer = None
+                print("[SISTEMA] Tutti i giocatori superstiti sono rientrati. Timer di recupero annullato.")
         elif event in ('close', 'error'):
             print(f"[RETE] connessione persa: {error}")
             self._handle_player_disconnection(connection)
+
+    def _reject_connection(self, connection, msg):
+        rejection_msg = {"status": "REJECTED", "last_event": msg}
+        self._send_state(connection, json.dumps(rejection_msg))
+        if connection in self._peers:
+            self._peers.remove(connection)
+        connection.close()
 
     def on_new_connection(self, event, connection, address, error):
         match event:
@@ -65,10 +89,10 @@ class MonopolyBank:
         finally:
             self._server.close()
 
-    def _send_state(self, connection, state: dict):
+    def _send_state(self, connection, state):
         connection.send(state)
 
-    def _send_all(self, state: dict):
+    def _send_all(self, state):
         for connection in self._peers:
             self._send_state(connection, state)
 
@@ -94,34 +118,68 @@ class MonopolyBank:
 class MonopolyUser:
     def __init__(self, nickname: str, address):
         self._nickname = nickname
+        self._address = address
         self._running = True
         self._view = MonopolyView()
         self._controller = ClientController(self._view)
         self._client = Client(address, self.on_network_message)
+        self._reconnecting = False
+        self._last_reconnect_attempt = 0.0
+        self._RECONNECT_INTERVAL = 3.0
+        self._reconnect_start_time = 0.0
+        self._MAX_RECONNECT_TIME = 90.0
+        self._rejected = False
 
     def on_network_message(self, event, payload, connection, error):
         if event == 'message':
             state_dict = json.loads(payload)
+            if state_dict.get("status") == "REJECTED":
+                self._rejected = True
+                msg = state_dict.get("last_event")
+                print(f"[CLIENT] error: {msg}")
+                self.stop()
+                return
             self._controller.handle_update_state(state_dict)
         elif event in ('close', 'error'):
-            print(f"Connessione col server persa: {error}")
-            self.stop()
+            if self._rejected:
+                return
+            if not self._reconnecting:
+                print(f"[CLIENT] Connessione persa. Inizio tentativi di riconnessione...")
+                self._reconnecting = True
+                self._reconnect_start_time = time.time()
+                if not self._client.closed:
+                    self._client.close()
+                self._controller.handle_update_state({"status": "SERVER_DOWN"})
 
     def run(self):
+        self._send_join()
+        while self._running:
+            current_time = time.time()
+            if self._reconnecting:
+                passed_time = current_time - self._reconnect_start_time
+                if passed_time > self._MAX_RECONNECT_TIME:
+                    print(f"[CLIENT] Timeout raggiunto ({self._MAX_RECONNECT_TIME}s). Il server non è tornato online. Chiusura.")
+                    self.stop()
+                    break
+                if current_time - self._last_reconnect_attempt > self._RECONNECT_INTERVAL:
+                    self._last_reconnect_attempt = current_time
+                    self._attempt_reconnection()
+
+            for event in pygame.event.get():
+                if event.type == pygame.QUIT:
+                    self.stop()
+                elif not self._reconnecting:
+                    action = self._controller.handle_input(event, self._nickname)
+                    if action:
+                        self._client.send(json.dumps(action))
+            self._view.render(self._nickname)
+
+    def _send_join(self):
         joining_event = {
             "type": "join",
             "payload": {"nickname": self._nickname}
         }
         self._client.send(json.dumps(joining_event))
-        while self._running:
-            for event in pygame.event.get():
-                if event.type == pygame.QUIT:
-                    self.stop()
-                else:
-                    action = self._controller.handle_input(event, self._nickname)
-                    if action:
-                        self._client.send(json.dumps(action))
-            self._view.render(self._nickname)
 
     def stop(self):
         if not self._running:
@@ -139,3 +197,12 @@ class MonopolyUser:
                 pass
         self._client.close()
         pygame.quit()
+
+    def _attempt_reconnection(self):
+        print(f"[CLIENT] Tentativo di connessione a {self._address}...")
+        try:
+            self._client = Client(self._address, self.on_network_message)
+            self._send_join()
+            self._reconnecting = False
+        except Exception as e:
+            print(f"[CLIENT] Server non ancora raggiungibile.")

@@ -130,8 +130,24 @@ class Monopoly:
     def remove_player(self, nickname: str):
         player = self._get_player(nickname)
         if player:
+            for prop_idx in player.get_properties():
+                self.board.get_space(prop_idx).remove_owner()
+            if self.turn is not None:
+                idx = self.players.index(player)
+                if idx < self.turn:
+                    self.turn -= 1
+                elif idx == self.turn:
+                    self.has_rolled = False
             self.players.remove(player)
-            self.last_event = f"{nickname} quit the game"
+            self.alive_players -= 1
+            if self.turn is not None:
+                if self.players and self.turn >= len(self.players):
+                    self.turn = 0
+            if self.alive_players <= 1:
+                self._end()
+                self.last_event = f"{nickname} quit. Not enough players. Game ended!"
+            else:
+                self.last_event = f"{nickname} quit the game"
         else:
             self.last_event = "error: no player found"
 
@@ -271,6 +287,8 @@ class Monopoly:
         self.status = "CLOSED"
 
     def player_disconnection(self, nickname):
+        if not self._get_player(nickname):
+            return
         if self.status == "PLAYING":
             self.status = "PAUSED"
         self.waiting_for.add(nickname)
@@ -280,21 +298,11 @@ class Monopoly:
         return self.waiting_for
 
     def reconnection_timeout(self):
-        for nickname in self.waiting_for:
-            player = self._get_player(nickname)
-            if player:
-                player.disconnect()
-                for prop_idx in player.get_properties():
-                    self.board.get_space(prop_idx).remove_owner()
-                self.turn = 0
-                self.players.remove(player)
-                self.alive_players -= 1
+        for nickname in list(self.waiting_for):
+            self.remove_player(nickname)
         self.waiting_for.clear()
         if self.alive_players > 1:
             self.last_event = self._restart_game()
-        else:
-            self._end()
-            self.last_event = "not enough players left -> game ended"
 
     def reconnect_player(self, nickname):
         self.waiting_for.remove(nickname)

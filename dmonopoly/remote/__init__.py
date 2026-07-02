@@ -110,6 +110,7 @@ class Client(Connection):
 class Server:
     def __init__(self, port, callback=None):
         self.__socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+        self.__socket.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
         self.__socket.bind(address(port=port))
         self.__listener_thread = threading.Thread(target=self.__handle_incoming_connections, daemon=True)
         self.__callback = callback

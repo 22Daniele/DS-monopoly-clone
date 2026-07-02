@@ -48,11 +48,14 @@ class MonopolyView:
         self.screen.fill((0, 0, 0))
         self.screen.blit(self.board_img, (0, 0))
         if self._game_state:
-            self._render_houses()
-            self._render_pawns()
-            self._render_player_info()
-            self._render_messages()
-            self._render_buttons(nickname)
+            if self._game_state['status'] == 'SERVER_DOWN':
+                self._render_reconnecting()
+            else:
+                self._render_houses()
+                self._render_pawns()
+                self._render_player_info()
+                self._render_messages()
+                self._render_buttons(nickname)
         else:
             self._render_loading()
 
@@ -217,3 +220,7 @@ class MonopolyView:
 
     def get_game_state(self):
         return self._game_state
+
+    def _render_reconnecting(self):
+        text = self.font_title.render("SERVER DOWN! TRYING TO RECONNECT...", True, self.COLORS["text"])
+        self.screen.blit(text, (self.ui_x + 20, 400))
