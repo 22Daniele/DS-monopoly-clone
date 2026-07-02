@@ -57,7 +57,7 @@ class MonopolyView:
             else:
                 self._render_houses()
                 self._render_pawns()
-                self._render_player_info()
+                self._render_player_info(nickname)
                 self._render_messages()
                 self._render_buttons(nickname)
         else:
@@ -116,31 +116,43 @@ class MonopolyView:
             new_y = start_y - spacing * -(space_idx - 40)
         return new_x, new_y
 
-    def _render_player_info(self):
-        """Disegna il pannello di destra con i bilanci e il turno attuale."""
-        title = self.font_title.render("GIOCATORI", True, self.COLORS["text"])
+    def _render_player_info(self, nickname: str):
+        """Disegna il pannello di destra con i bilanci, il turno e le proprietà (su 2 colonne)."""
+        title = self.font_title.render("PLAYERS", True, self.COLORS["text"])
         self.screen.blit(title, (self.ui_x + 20, 20))
-
         current_turn = self._game_state.get("current_turn_nickname")
         players = self._game_state.get("players", [])
-
-        y_offset = 80
+        board_spaces = self._game_state.get("board", {}).get("spaces", [])
+        y_offsets = [80, 80]
+        col_width = 300
         for i, player in enumerate(players):
-            name = player.get("nickname", "Sconosciuto")
+            col = 0 if i < 2 else 1
+            base_x = self.ui_x + 20 + (col * col_width)
+            name = player.get("nickname", "Unknown")
             balance = player.get("balance", 0)
-
-            # Se è il turno di questo giocatore, evidenzia il testo o aggiungi un asterisco
-            prefix = "▶ " if current_turn == name else "  "
-
-            # Disegna un quadratino col colore del giocatore
+            properties_idx = player.get("properties", [])
+            is_me = (name == nickname)
+            text_color = (255, 215, 0) if is_me else self.COLORS["text"]
+            prefix = "> " if current_turn == name else "  "
             color = self.COLORS["players"][i % len(self.COLORS["players"])]
-            pygame.draw.rect(self.screen, color, (self.ui_x + 20, y_offset, 15, 15))
+            pygame.draw.rect(self.screen, color, (base_x, y_offsets[col], 15, 15))
+            info_text = self.font_text.render(f"{prefix}{name}: €{balance}", True, text_color)
+            self.screen.blit(info_text, (base_x + 25, y_offsets[col] - 2))
+            y_offsets[col] += 25
+            if properties_idx:
+                for idx in properties_idx:
+                    if idx < len(board_spaces):
+                        raw_name = board_spaces[idx].get("name", f"Casella {idx}")
+                        prop_name = raw_name.title()
 
-            # Disegna i dati
-            info_text = self.font_text.render(f"{prefix}{name}: €{balance}", True, self.COLORS["text"])
-            self.screen.blit(info_text, (self.ui_x + 45, y_offset - 2))
-
-            y_offset += 40
+                        prop_surf = self.font_log.render(f"- {prop_name}", True, (170, 170, 170))
+                        self.screen.blit(prop_surf, (base_x + 25, y_offsets[col]))
+                        y_offsets[col] += 20
+            else:
+                none_surf = self.font_log.render("- No properties", True, (100, 100, 100))
+                self.screen.blit(none_surf, (base_x + 25, y_offsets[col]))
+                y_offsets[col] += 20
+            y_offsets[col] += 15
 
     def _render_messages(self):
         """Disegna il box testuale in basso a destra con gli ultimi eventi."""
@@ -153,7 +165,7 @@ class MonopolyView:
         pygame.draw.rect(self.screen, self.COLORS["log_bg"], box_rect, border_radius=8)
 
         # Testo
-        title = self.font_text.render("Ultimo Evento:", True, (150, 150, 150))
+        title = self.font_text.render("Last event:", True, (150, 150, 150))
         self.screen.blit(title, (box_rect.x + 10, box_rect.y + 10))
 
         # Permette al testo di non uscire dai bordi (wrapping base)
@@ -193,12 +205,18 @@ class MonopolyView:
         spacing = 10
 
         if self._game_state['status'] == 'LOBBY':
+            ready_list = self._game_state.get("players_ready", [])
+            am_i_ready = nickname in ready_list
             rect = pygame.Rect(start_x, start_y, btn_width, btn_height)
-            pygame.draw.rect(self.screen, (50, 200, 50), rect)
-            text_surf = self.font.render("ready", True, (255, 255, 255))
+            if am_i_ready:
+                pygame.draw.rect(self.screen, (70, 70, 70), rect, border_radius=5)
+                text_surf = self.font_text.render("READY!", True, (150, 150, 150))
+            else:
+                pygame.draw.rect(self.screen, (46, 125, 50), rect, border_radius=5)
+                text_surf = self.font_text.render("READY", True, (255, 255, 255))
+                self._active_buttons["ready"] = rect
             text_rect = text_surf.get_rect(center=rect.center)
             self.screen.blit(text_surf, text_rect)
-            self._active_buttons["ready"] = rect
             return
 
         if current_turn_player != nickname:
@@ -209,7 +227,7 @@ class MonopolyView:
             x = start_x + (i * (btn_width + spacing))
             y = start_y
             rect = pygame.Rect(x, y, btn_width, btn_height)
-            pygame.draw.rect(self.screen, (50, 200, 50), rect)
+            pygame.draw.rect(self.screen, (46, 125, 50), rect, border_radius=5)
             text_surf = self.font.render(action_name, True, (255, 255, 255))
             text_rect = text_surf.get_rect(center=rect.center)
             self.screen.blit(text_surf, text_rect)

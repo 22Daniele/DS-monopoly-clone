@@ -113,7 +113,7 @@ class Player:
 
 
 class Monopoly:
-    STARTING_PROPERTIES = 7
+    STARTING_PROPERTIES = 5
     def __init__(self):
         self.waiting_for = set()
         self.players_ready = set()

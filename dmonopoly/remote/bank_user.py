@@ -102,11 +102,13 @@ class MonopolyBank:
         nickname = self._connection_to_nickname.pop(connection, None)
         if nickname:
             self._send_all(self._controller.handle_event(PlayerEvent.DISCONNECTION, {"nickname": nickname}))
-            if self._reconnect_timer:
-                self._reconnect_timer.cancel()
-            self._reconnect_timer = threading.Timer(30.0, self._on_reconnect_timeout)
-            self._reconnect_timer.start()
-            print("[SISTEMA] Timer di riconnessione da 30 secondi avviato...")
+            if self._game.status != "CLOSED":
+                if self._reconnect_timer:
+                    self._reconnect_timer.cancel()
+                self._reconnect_timer = threading.Timer(30.0, self._on_reconnect_timeout)
+                self._reconnect_timer.start()
+                print("[SISTEMA] Timer di riconnessione da 30 secondi avviato...")
+        self._check_auto_shutdown()
 
     def _on_reconnect_timeout(self):
         if self._game.running():
@@ -114,6 +116,12 @@ class MonopolyBank:
         print("[SISTEMA] Tempo scaduto! Il giocatore non è rientrato. Continuo la partita senza di lui.")
         self._reconnect_timer = None
         self._send_all(self._controller.handle_event(PlayerEvent.RECONNECTION_TIMEOUT, {}))
+        self._check_auto_shutdown()
+
+    def _check_auto_shutdown(self):
+        if self._game.status == "CLOSED" and len(self._peers) == 0:
+            print("[SISTEMA] Partita terminata e nessun client connesso. Chiusura automatica del server...")
+            self._running = False
 
 class MonopolyUser:
     def __init__(self, nickname: str, address):
