@@ -1,6 +1,5 @@
 import os
 import time
-
 from model.serializer_deserializer import *
 
 CHECKPOINT_DIR = "checkpointing"
