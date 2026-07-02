@@ -41,10 +41,9 @@ class ServerController:
                 self._handle_disconnection(player)
             case PlayerEvent.RECONNECTION_TIMEOUT:
                 self._handle_reconnection_timeout()
-        x = serialize(self._game)
         if self._game.status == "CLOSED":
             delete_checkpoint()
-        return x
+        return serialize(self._game)
 
     def _handle_join(self, nickname: str):
         if nickname in self._game.disconnected_players():

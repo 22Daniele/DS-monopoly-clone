@@ -1,3 +1,5 @@
+import os
+
 import pygame
 
 class MonopolyView:
@@ -10,7 +12,9 @@ class MonopolyView:
         self.clock = pygame.time.Clock()
 
         try:
-            self.board_img = pygame.image.load("/Users/daniele/PycharmProjects/DS-monopoly-clone/dmonopoly/assets/board.png").convert()
+            base_dir = os.path.dirname(os.path.dirname(__file__))
+            image_path = os.path.join(base_dir, "assets", "board.png")
+            self.board_img = pygame.image.load(image_path).convert()
             self.board_img = pygame.transform.smoothscale(self.board_img, (800, 800))
         except FileNotFoundError:
             print("ATTENZIONE: tabellone.png non trovato. Uso uno sfondo nero temporaneo.")

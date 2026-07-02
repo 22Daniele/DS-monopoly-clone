@@ -1,4 +1,5 @@
-from random import Random
+import os
+from random import Random, choice
 import json
 
 class Space:
@@ -6,9 +7,8 @@ class Space:
         self.name = name
 
 class ActionSpace(Space):
-    def __init__(self, name: str, type: str):
+    def __init__(self, name: str):
         super().__init__(name)
-        self.type = type
 
 class PropertySpace(Space):
     def __init__(self, name: str, price: int):
@@ -31,7 +31,10 @@ class PropertySpace(Space):
 
 class Board:
 
-    def __init__(self, spaces_path = "/Users/daniele/PycharmProjects/DS-monopoly-clone/dmonopoly/model/board_spaces.json"):
+    def __init__(self, spaces_path = None):
+        if spaces_path is None:
+            base_dir = os.path.dirname(__file__)
+            spaces_path = os.path.join(base_dir, "board_spaces.json")
         self._random = Random()
         self.spaces = []
         self.property_indexes = []
@@ -45,7 +48,7 @@ class Board:
                 self.spaces.append(PropertySpace(space["name"], space["price"]))
                 self.property_indexes.append(i)
             else:
-                self.spaces.append(ActionSpace(space["name"], space["type"]))
+                self.spaces.append(ActionSpace(space["name"].lower()))
 
     def get_random_properties(self, n: int):
         return self._random.sample(self.property_indexes, n)
@@ -120,7 +123,19 @@ class Monopoly:
         self.players: list[Player] = []
         self.has_rolled = False
         self.alive_players = 0
-        self.last_event = "In attesa di giocatori..."
+        self.last_event = "Waiting for players..."
+
+        self.chance_cards = [
+            "Tax on luxury: pay 150",
+            "You win a prize: earn 100",
+            "Speeding fine: pay 50",
+            "Unexpected inheritance: earn 200"
+        ]
+        self.community_chest_cards = [
+            "Bank error: earn 200",
+            "Medical expenses: pay 100",
+            "Go back to START! earn 200"
+        ]
 
     def add_player(self, nickname: str):
         player = Player(nickname)
@@ -231,19 +246,24 @@ class Monopoly:
                     owner.get_paid(amount)
                     log += f" {owner_nickname} got paid {amount}"
                 if not player.pay(amount):
-                    for prop_idx in player.get_properties():
-                        self.board.get_space(prop_idx).remove_owner()
-                    self.alive_players -= 1
-                    log += f" {player.nickname} lost"
-                    if self.alive_players == 1:
-                        self._end()
-                        log += f" game ended"
+                    log = self._player_bankruptcy(log, player)
                 else:
                     log += f" {player.nickname} paid {amount}"
                 return log
             return f" {player.nickname} is on his own property"
         else:
-            return "not yet implemented"
+            space: ActionSpace = self.board.get_space(position)
+            return self._execute_action_space(space, player)
+
+    def _player_bankruptcy(self, log: str, player: Player) -> str:
+        for prop_idx in player.get_properties():
+            self.board.get_space(prop_idx).remove_owner()
+        self.alive_players -= 1
+        log += f" {player.nickname} lost"
+        if self.alive_players == 1:
+            self._end()
+            log += f" game ended"
+        return log
 
     def _assign_random_properties(self):
         shuffled = self.board.get_random_properties(len(self.players) * self.STARTING_PROPERTIES)
@@ -314,3 +334,67 @@ class Monopoly:
     def _restart_game(self):
         self.status = "PLAYING"
         return "game restarted"
+
+    def _execute_action_space(self, space: ActionSpace, player: Player):
+        match space.name:
+            case "start":
+                return f"{player.nickname} is on START!"
+            case "income tax":
+                tax = 200
+                if not player.pay(tax):
+                    return self._player_bankruptcy("", player)
+                return f"{player.nickname} paid {tax} for income tax."
+            case "national insurance":
+                tax = 150
+                if not player.pay(tax):
+                    return self._player_bankruptcy("", player)
+                return f"{player.nickname} paid {tax} for national insurance."
+            case "chance":
+                card = choice(self.chance_cards)
+                log = f"Chance! '{card}'."
+                if "pay 150" in card:
+                    if not player.pay(150):
+                        return self._player_bankruptcy("", player)
+                elif "pay 50" in card:
+                    if not player.pay(50):
+                        return self._player_bankruptcy("", player)
+                elif "earn 100" in card:
+                    player.get_paid(100)
+                elif "earn 200" in card:
+                    player.get_paid(200)
+                return log
+            case "community chest":
+                card = choice(self.community_chest_cards)
+                log = f"Community chest! '{card}'."
+                if "pay 100" in card:
+                    if not player.pay(100):
+                        return self._player_bankruptcy("", player)
+                elif "earn 200" in card:
+                    player.get_paid(200)
+                elif "START!" in card:
+                    player.position = 0
+                    player.get_paid(200)
+                    log += " (+200)."
+                return log
+            case "go to jail":
+                player.position = 10
+                return f" {player.nickname} goes to jail!."
+            case "jail" | "free parking":
+                return f"{player.nickname} on {space.name}."
+            case "rail station":
+                price = 300
+                if not player.pay(price):
+                    return self._player_bankruptcy("", player)
+                return f"{player.nickname} paid {price} for the train ticket."
+            case "electric company":
+                price = 150
+                if not player.pay(price):
+                    return self._player_bankruptcy("", player)
+                return f"{player.nickname} paid {price} on electric company."
+            case "water works":
+                price = 150
+                if not player.pay(price):
+                    return self._player_bankruptcy("", player)
+                return f"{player.nickname} paid {price} on water works."
+            case _:
+                return f"{space.name} non yet implemented."

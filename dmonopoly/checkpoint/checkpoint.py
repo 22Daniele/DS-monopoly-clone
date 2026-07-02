@@ -1,9 +1,9 @@
 import os
 import time
-
 from model.serializer_deserializer import *
 
-CHECKPOINT_DIR = "checkpointing"
+BASE_DIR = os.path.dirname(__file__)
+CHECKPOINT_DIR = os.path.join(BASE_DIR, "checkpointing")
 CHECKPOINT_FILE = os.path.join(CHECKPOINT_DIR, "autosave.json")
 EXPIRATION_CHECKPOINT_TIMEOUT = 90.0
 

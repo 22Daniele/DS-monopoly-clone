@@ -42,7 +42,7 @@ class Serializer:
         return data
 
     def _serialize_actionspace(self, space: ActionSpace):
-        return self._to_dict(space, "name", "type")
+        return self._to_dict(space, "name")
 
     def _serialize_propertyspace(self, space: PropertySpace):
         return self._to_dict(space, "name", "price", "owner", "houses")
@@ -85,7 +85,7 @@ class Deserializer:
         return [self._deserialize(obj[name]) for name in attributes]
 
     def _deserialize_actionspace(self, obj):
-        return ActionSpace(*self._from_dict(obj, "name", "type"))
+        return ActionSpace(*self._from_dict(obj, "name"))
 
     def _deserialize_propertyspace(self, obj):
         space = PropertySpace(*self._from_dict(obj, "name", "price"))
