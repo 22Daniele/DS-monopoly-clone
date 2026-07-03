@@ -20,5 +20,5 @@ monopoly-client = "clientMain:main"
 monopoly-server = "serverMain:main"
 
 [tool.setuptools]
-packages = ["model", "view", "controller", "remote", "checkpointing"]
+packages = ["model", "view", "controller", "remote", "checkpoint"]
 py-modules = ["clientMain", "serverMain"]
