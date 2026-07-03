@@ -51,7 +51,6 @@ class MonopolyBank:
                         return
                 else:
                     expected_token = self._game.get_player_token(nickname)
-                    print(expected_token, token)
                     if expected_token and expected_token != token:
                         print(f"[SISTEMA] Access denied fo '{nickname}'! Wrong token.")
                         self._reject_connection(connection, "Reconnection failed: Token not valid!")

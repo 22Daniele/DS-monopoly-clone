@@ -1,0 +1,11 @@
+services:
+  monopoly-server:
+    build: .
+    container_name: monopoly-server-instance
+    ports:
+      # Mappa la porta 8080 del tuo Mac sulla porta 8080 del container
+      - "8080:8080"
+    volumes:
+      # Collega la cartella locale alla cartella /app/checkpointing dentro il container
+      - ./checkpointing:/app/checkpointing
+    restart: unless-stopped

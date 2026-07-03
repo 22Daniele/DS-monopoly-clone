@@ -1,7 +1,5 @@
 import argparse
 import sys
-
-# NOTA: Adatta l'import alla tua struttura
 from remote.bank_user import MonopolyBank
 
 

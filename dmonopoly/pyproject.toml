@@ -1,0 +1,24 @@
+[build-system]
+requires = ["setuptools>=61.0"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "dmonopoly"
+version = "1.0.0"
+description = "Un clone multiplayer del Monopoly in Python"
+authors = [
+    { name = "Daniele" }
+]
+dependencies = [
+    "pygame>=2.0.0",
+    "psutil>=5.0.0"
+]
+requires-python = ">=3.10"
+
+[project.scripts]
+monopoly-client = "clientMain:main"
+monopoly-server = "serverMain:main"
+
+[tool.setuptools]
+packages = ["model", "view", "controller", "remote", "tokens", "checkpointing"]
+py-modules = ["clientMain", "serverMain"]

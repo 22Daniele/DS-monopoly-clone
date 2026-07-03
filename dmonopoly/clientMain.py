@@ -1,6 +1,5 @@
 import sys
 import pygame
-
 from remote.bank_user import MonopolyUser
 
 if __name__ == "__main__":

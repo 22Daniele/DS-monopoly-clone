@@ -137,6 +137,8 @@ class Server:
                 socket, address = self.__socket.accept()
                 connection = Connection(socket)
                 self.on_event('connect', connection, address)
+        except OSError:
+            pass
         except ConnectionAbortedError as e:
             pass  # silently ignore error, because this is simply the socket being closed locally
         except Exception as e:
