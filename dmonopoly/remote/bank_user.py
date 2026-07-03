@@ -1,5 +1,8 @@
 import json
+import os
 import time
+import uuid
+
 import pygame
 from checkpoint.checkpoint import load_checkpoint
 from controller.controller import ClientController, ServerController, PlayerEvent
@@ -34,6 +37,7 @@ class MonopolyBank:
             player_event = PlayerEvent(data["type"])
             if player_event == PlayerEvent.JOIN:
                 nickname = data["payload"]["nickname"]
+                token = data["payload"].get("token", "")
                 is_reconnection = nickname in self._game.disconnected_players()
                 if not is_reconnection:
                     if self._game.status != "LOBBY":
@@ -45,14 +49,22 @@ class MonopolyBank:
                     if nickname in self._connection_to_nickname.values():
                         self._reject_connection(connection, "Nickname already in use!")
                         return
+                else:
+                    expected_token = self._game.get_player_token(nickname)
+                    print(expected_token, token)
+                    if expected_token and expected_token != token:
+                        print(f"[SISTEMA] Access denied fo '{nickname}'! Wrong token.")
+                        self._reject_connection(connection, "Reconnection failed: Token not valid!")
+                        return
+                    print(f"[SISTEMA] Authentication succeeded for '{nickname}'.")
                 self._connection_to_nickname[connection] = nickname
             self._send_all(self._controller.handle_event(player_event, data["payload"]))
             if self._game.status == "PLAYING" and self._reconnect_timer:
                 self._reconnect_timer.cancel()
                 self._reconnect_timer = None
-                print("[SISTEMA] Tutti i giocatori superstiti sono rientrati. Timer di recupero annullato.")
+                print("[SISTEMA] All the player are back. Reconnection timer cancelled.")
         elif event in ('close', 'error'):
-            print(f"[RETE] connessione persa: {error}")
+            print(f"[RETE] connection lost: {error}")
             self._handle_player_disconnection(connection)
 
     def _reject_connection(self, connection, msg):
@@ -137,6 +149,7 @@ class MonopolyUser:
         self._reconnect_start_time = 0.0
         self._MAX_RECONNECT_TIME = 90.0
         self._rejected = False
+        self._token = self._get_or_create_token()
 
     def on_network_message(self, event, payload, connection, error):
         if event == 'message':
@@ -185,7 +198,8 @@ class MonopolyUser:
     def _send_join(self):
         joining_event = {
             "type": "join",
-            "payload": {"nickname": self._nickname}
+            "payload": {"nickname": self._nickname,
+            "token": self._token}
         }
         self._client.send(json.dumps(joining_event))
 
@@ -214,3 +228,16 @@ class MonopolyUser:
             self._reconnecting = False
         except Exception as e:
             print(f"[CLIENT] Server non ancora raggiungibile.")
+
+    def _get_or_create_token(self):
+        tokens_dir = "tokens"
+        token_file = os.path.join(tokens_dir, f"{self._nickname}_token.txt")
+        if not os.path.exists(tokens_dir):
+            os.makedirs(tokens_dir)
+        if os.path.exists(token_file):
+            with open(token_file, "r") as f:
+                return f.read().strip()
+        new_token = str(uuid.uuid4())
+        with open(token_file, "w") as f:
+            f.write(new_token)
+        return new_token

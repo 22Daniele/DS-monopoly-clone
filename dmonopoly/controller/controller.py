@@ -24,7 +24,7 @@ class ServerController:
         player = data.get("nickname", "SISTEMA")
         match event:
             case PlayerEvent.JOIN:
-                self._handle_join(player)
+                self._handle_join(data)
             case PlayerEvent.QUIT:
                 self._handle_quit(player)
             case PlayerEvent.READY:
@@ -45,11 +45,13 @@ class ServerController:
             delete_checkpoint()
         return serialize(self._game)
 
-    def _handle_join(self, nickname: str):
+    def _handle_join(self, payload: dict):
+        nickname = payload.get("nickname")
+        token = payload.get("token", "")
         if nickname in self._game.disconnected_players():
             self._game.reconnect_player(nickname)
         else:
-            self._game.add_player(nickname)
+            self._game.add_player(nickname, token)
 
     def _handle_quit(self, nickname: str):
         self._game.remove_player(nickname)
