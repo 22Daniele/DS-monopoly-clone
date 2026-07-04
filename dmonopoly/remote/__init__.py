@@ -67,10 +67,24 @@ class Connection:
         self.__socket.sendall(message)
 
     def receive(self):
-        length = int.from_bytes(self.__socket.recv(4), 'big')
+        def rcvall(n):
+            data = bytearray()
+            while len(data) < n:
+                packet = self.__socket.recv(n - len(data))
+                if not packet:
+                    return None
+                data.extend(packet)
+            return bytes(data)
+        length_bytes = rcvall(4)
+        if not length_bytes:
+            return None
+        length = int.from_bytes(length_bytes, 'big')
         if length == 0:
             return None
-        return self.__socket.recv(length).decode()
+        payload = rcvall(length)
+        if not payload:
+            return None
+        return payload.decode('utf-8')
 
     def close(self):
         self.__socket.close()

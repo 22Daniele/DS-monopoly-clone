@@ -104,7 +104,7 @@ class MonopolyBank:
         connection.send(state)
 
     def _send_all(self, state):
-        for connection in self._peers:
+        for connection in list(self._peers):
             self._send_state(connection, state)
 
     def _handle_player_disconnection(self, connection):
