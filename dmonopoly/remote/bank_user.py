@@ -76,7 +76,7 @@ class MonopolyBank:
     def on_new_connection(self, event, connection, address, error):
         match event:
             case 'listen':
-                print(f"Server listening on port {address[0]} at {', '.join(local_ips())}")
+                print(f"Server listening on port {address[1]} at {', '.join(local_ips())}")
             case 'connect':
                 print(f"Open ingoing connection from: {address}")
                 connection.callback = self.on_message_received

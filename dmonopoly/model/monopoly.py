@@ -338,7 +338,10 @@ class Monopoly:
             self.last_event = f"reconnected player: {nickname}. Waiting other disconnected players to reconnect..."
 
     def _restart_game(self):
-        self.status = "PLAYING"
+        if self.turn is None:
+            self.status = "LOBBY"
+        else:
+            self.status = "PLAYING"
         return "game restarted"
 
     def _execute_action_space(self, space: ActionSpace, player: Player):
