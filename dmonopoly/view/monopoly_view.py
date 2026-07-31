@@ -244,5 +244,5 @@ class MonopolyView:
         return self._game_state
 
     def _render_reconnecting(self):
-        text = self.font_title.render("SERVER DOWN! TRYING TO RECONNECT...", True, self.COLORS["text"])
+        text = self.font_title.render("CONNECTION LOST! TRYING TO RECONNECT...", True, self.COLORS["text"])
         self.screen.blit(text, (self.ui_x + 20, 400))

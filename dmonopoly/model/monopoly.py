@@ -1,5 +1,4 @@
 import os
-import token
 from random import Random, choice
 import json
 
@@ -69,10 +68,9 @@ class Board:
 
 class Player:
 
-    def __init__(self, nickname: str, token: str = ""):
+    def __init__(self, nickname: str):
         self.bankruptcy = False
         self.nickname = nickname
-        self.token = token
         self.position = 0
         self.balance = 5000
         self.properties = []
@@ -139,14 +137,10 @@ class Monopoly:
             "Go back to START! earn 200"
         ]
 
-    def add_player(self, nickname: str, token: str = ""):
-        player = Player(nickname, token)
+    def add_player(self, nickname: str):
+        player = Player(nickname)
         self.players.append(player)
         self.last_event = f"{nickname} joined the game"
-
-    def get_player_token(self, nickname: str):
-        player = self._get_player(nickname)
-        return player.token if player else ""
 
     def remove_player(self, nickname: str):
         player = self._get_player(nickname)

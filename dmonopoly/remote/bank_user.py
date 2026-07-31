@@ -1,8 +1,6 @@
-import json
-import os
-import time
 import uuid
 
+from checkpoint.checkpoint import *
 import pygame
 from checkpoint.checkpoint import load_checkpoint
 from controller.controller import ClientController, ServerController, PlayerEvent
@@ -18,18 +16,20 @@ class MonopolyBank:
         backup_game = load_checkpoint()
         self._reconnect_timer = None
         if backup_game:
-            print("[SISTEMA] Checkpoint trovato! Ripristino della partita in corso...")
-            self._game = backup_game
+            print("[SYSTEM] Checkpoint found! Restoring game...")
+            self._game, self._player_tokens = backup_game
             self._reconnect_timer = threading.Timer(30.0, self._on_reconnect_timeout)
             self._reconnect_timer.start()
-            print("[SISTEMA] Avviato timer di recupero server: 30 secondi per il rientro di tutti i giocatori.")
+            print("[SYSTEM] Timer started: waiting disconnected players for 30 seconds...")
         else:
-            print("[SISTEMA] Nessun checkpoint trovato. Creo una nuova partita.")
+            print("[SYSTEM] No checkpoint found. Creating a new game...")
             self._game = Monopoly()
+            self._player_tokens = {}
         self._controller = ServerController(self._game)
         self._server = Server(port, self.on_new_connection)
         self._peers: set[Connection] = set()
         self._connection_to_nickname = {}
+
 
     def on_message_received(self, event, payload, connection, error):
         if event == 'message':
@@ -49,21 +49,22 @@ class MonopolyBank:
                     if nickname in self._connection_to_nickname.values():
                         self._reject_connection(connection, "Nickname already in use!")
                         return
+                    self._player_tokens[nickname] = token
                 else:
-                    expected_token = self._game.get_player_token(nickname)
+                    expected_token = self._player_tokens.get(nickname)
                     if expected_token and expected_token != token:
-                        print(f"[SISTEMA] Access denied fo '{nickname}'! Wrong token.")
+                        print(f"[SYSTEM] Access denied fo '{nickname}'! Wrong token.")
                         self._reject_connection(connection, "Reconnection failed: Token not valid!")
                         return
-                    print(f"[SISTEMA] Authentication succeeded for '{nickname}'.")
+                    print(f"[SYSTEM] Authentication succeeded for '{nickname}'.")
                 self._connection_to_nickname[connection] = nickname
-            self._send_all(self._controller.handle_event(player_event, data["payload"]))
+            self._update_save_and_broadcast(player_event, data["payload"])
             if self._game.status == "PLAYING" and self._reconnect_timer:
                 self._reconnect_timer.cancel()
                 self._reconnect_timer = None
-                print("[SISTEMA] All the player are back. Reconnection timer cancelled.")
+                print("[SYSTEM] All the player are back. Reconnection timer cancelled.")
         elif event in ('close', 'error'):
-            print(f"[RETE] connection lost: {error}")
+            print(f"[NETWORK] connection lost: {error}")
             self._handle_player_disconnection(connection)
 
     def _reject_connection(self, connection, msg):
@@ -81,14 +82,11 @@ class MonopolyBank:
                 print(f"Open ingoing connection from: {address}")
                 connection.callback = self.on_message_received
                 self._peers.add(connection)
-                #aggiungi player al game
-                #self._controller.handle_event(event, connection)
                 self._send_state(connection, serialize(self._game))
             case 'stop':
                 print(f"Stop listening for new connections")
             case 'error':
                 print(error)
-                #self._send_all(error)
 
     def run(self):
         print("Server in esecuzione. In attesa di client...")
@@ -112,27 +110,35 @@ class MonopolyBank:
             self._peers.remove(connection)
         nickname = self._connection_to_nickname.pop(connection, None)
         if nickname:
-            self._send_all(self._controller.handle_event(PlayerEvent.DISCONNECTION, {"nickname": nickname}))
+            self._update_save_and_broadcast(PlayerEvent.DISCONNECTION, {"nickname": nickname})
             if self._game.status != "CLOSED":
                 if self._reconnect_timer:
                     self._reconnect_timer.cancel()
                 self._reconnect_timer = threading.Timer(30.0, self._on_reconnect_timeout)
                 self._reconnect_timer.start()
-                print("[SISTEMA] Timer di riconnessione da 30 secondi avviato...")
+                print("[SYSTEM] Reconnection timer of 30 seconds started...")
         self._check_auto_shutdown()
 
     def _on_reconnect_timeout(self):
         if self._game.running():
             return
-        print("[SISTEMA] Tempo scaduto! Il giocatore non è rientrato. Continuo la partita senza di lui.")
+        print("[SYSTEM] Time's up! The player has not reconnected. Game continues without him.")
         self._reconnect_timer = None
-        self._send_all(self._controller.handle_event(PlayerEvent.RECONNECTION_TIMEOUT, {}))
+        self._update_save_and_broadcast(PlayerEvent.RECONNECTION_TIMEOUT, {})
         self._check_auto_shutdown()
 
     def _check_auto_shutdown(self):
         if self._game.status == "CLOSED" and len(self._peers) == 0:
-            print("[SISTEMA] Partita terminata e nessun client connesso. Chiusura automatica del server...")
+            print("[SYSTEM] Game ended and all clients disconnected. Automatically closing the server...")
             self._running = False
+
+    def _update_save_and_broadcast(self, event: PlayerEvent, payload: dict):
+        new_state_json = self._controller.handle_event(event, payload)
+        if self._game.status == "CLOSED":
+            delete_checkpoint()
+        else:
+            save_checkpoint(self._game, self._player_tokens)
+        self._send_all(new_state_json)
 
 class MonopolyUser:
     def __init__(self, nickname: str, address):
@@ -164,7 +170,7 @@ class MonopolyUser:
             if self._rejected:
                 return
             if not self._reconnecting:
-                print(f"[CLIENT] Connessione persa. Inizio tentativi di riconnessione...")
+                print(f"[CLIENT] Connection lost. Starting reconnection attempts...")
                 self._reconnecting = True
                 self._reconnect_start_time = time.time()
                 if not self._client.closed:
@@ -178,7 +184,7 @@ class MonopolyUser:
             if self._reconnecting:
                 passed_time = current_time - self._reconnect_start_time
                 if passed_time > self._MAX_RECONNECT_TIME:
-                    print(f"[CLIENT] Timeout raggiunto ({self._MAX_RECONNECT_TIME}s). Il server non è tornato online. Chiusura.")
+                    print(f"[CLIENT] Timeout reached ({self._MAX_RECONNECT_TIME}s). The server is still offline. Closing...")
                     self.stop()
                     break
                 if current_time - self._last_reconnect_attempt > self._RECONNECT_INTERVAL:
@@ -205,7 +211,7 @@ class MonopolyUser:
     def stop(self):
         if not self._running:
             return
-        print("Chiusura del client...")
+        print("Closing client...")
         self._running = False
         if not self._client.closed:
             try:
@@ -220,13 +226,13 @@ class MonopolyUser:
         pygame.quit()
 
     def _attempt_reconnection(self):
-        print(f"[CLIENT] Tentativo di connessione a {self._address}...")
+        print(f"[CLIENT] Reconnection attempt to {self._address}...")
         try:
             self._client = Client(self._address, self.on_network_message)
             self._send_join()
             self._reconnecting = False
         except Exception as e:
-            print(f"[CLIENT] Server non ancora raggiungibile.")
+            print(f"[CLIENT] Server is still unreachable.")
 
     def _get_or_create_token(self):
         tokens_dir = "tokens"

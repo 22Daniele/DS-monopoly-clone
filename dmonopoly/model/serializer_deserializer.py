@@ -51,7 +51,7 @@ class Serializer:
         return self._to_dict(board, "spaces", "property_indexes")
 
     def _serialize_player(self, player: Player):
-        return self._to_dict(player, "nickname", "position", "balance", "properties", "bankruptcy", "token")
+        return self._to_dict(player, "nickname", "position", "balance", "properties", "bankruptcy")
 
     def _serialize_monopoly(self, monopoly: Monopoly):
         return self._to_dict(
@@ -101,7 +101,6 @@ class Deserializer:
 
     def _deserialize_player(self, obj):
         player = Player(*self._from_dict(obj, "nickname"))
-        player.token = self._deserialize(obj.get("token", ""))
         player.bankruptcy = self._deserialize(obj["bankruptcy"])
         player.position = self._deserialize(obj["position"])
         player.balance = self._deserialize(obj["balance"])

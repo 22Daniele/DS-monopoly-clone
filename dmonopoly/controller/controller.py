@@ -21,7 +21,7 @@ class ServerController:
         self._game = game
 
     def handle_event(self, event: PlayerEvent, data: dict):
-        player = data.get("nickname", "SISTEMA")
+        player = data.get("nickname", "SISTEM")
         match event:
             case PlayerEvent.JOIN:
                 self._handle_join(data)
@@ -41,17 +41,14 @@ class ServerController:
                 self._handle_disconnection(player)
             case PlayerEvent.RECONNECTION_TIMEOUT:
                 self._handle_reconnection_timeout()
-        if self._game.status == "CLOSED":
-            delete_checkpoint()
         return serialize(self._game)
 
     def _handle_join(self, payload: dict):
         nickname = payload.get("nickname")
-        token = payload.get("token", "")
         if nickname in self._game.disconnected_players():
             self._game.reconnect_player(nickname)
         else:
-            self._game.add_player(nickname, token)
+            self._game.add_player(nickname)
 
     def _handle_quit(self, nickname: str):
         self._game.remove_player(nickname)
@@ -64,7 +61,6 @@ class ServerController:
 
     def _handle_end_turn(self):
         self._game.next_turn()
-        save_checkpoint(self._game)
 
     def _handle_buy(self, nickname: str):
         self._game.buy_property(nickname)

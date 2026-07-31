@@ -3,10 +3,6 @@ import socket
 import psutil
 from datetime import datetime
 
-# Uncomment this line to observe timeout errors more often.
-# Beware: short timeouts can make demonstrations more difficult to follow.
-# socket.setdefaulttimeout(5) # set default timeout for blocking operations to 5 seconds
-
 def address(ip='0.0.0.0:0', port=None):
     ip = ip.strip()
     if ':' in ip:
@@ -102,7 +98,7 @@ class Connection:
                 self.on_event('message', message)
         except Exception as e:
             if self.closed and isinstance(e, OSError):
-                return  # silently ignore error, because this is simply the socket being closed locally
+                return
             self.on_event('error', error=e)
         finally:
             self.close()
@@ -154,7 +150,7 @@ class Server:
         except OSError:
             pass
         except ConnectionAbortedError as e:
-            pass  # silently ignore error, because this is simply the socket being closed locally
+            pass
         except Exception as e:
             self.on_event('error', error=e)
         finally:

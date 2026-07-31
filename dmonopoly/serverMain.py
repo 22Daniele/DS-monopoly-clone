@@ -16,16 +16,16 @@ def main():
     args = parser.parse_args()
 
     print(f"=======================================")
-    print(f"  AVVIO MONOPOLY SERVER (PORTA {args.port})")
+    print(f"  STARTING MONOPOLY SERVER (PORT {args.port})")
     print(f"=======================================\n")
 
     try:
         server_app = MonopolyBank(args.port)
         server_app.run()
     except KeyboardInterrupt:
-        print("\n[SISTEMA] Interruzione manuale (Ctrl+C). Arresto in corso...")
+        print("\n[SISTEM] Manual interruption (Ctrl+C). Closing...")
     except Exception as e:
-        print(f"[ERRORE FATALE] Il server ha crashato: {e}")
+        print(f"[FATAL ERROR] Server crushed: {e}")
     finally:
         sys.exit(0)
 
