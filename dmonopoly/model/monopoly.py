@@ -184,13 +184,15 @@ class Monopoly:
         return self.status == "PLAYING"
 
     def next_turn(self, nickname):
-        self._check_player_turn(nickname)
+        if not self._check_player_turn(nickname):
+            return
         self.turn = (self.turn + 1) % len(self.players)
         self.has_rolled = False
         self.last_event = f"{self.current_turn_nickname}: end turn"
 
     def build_houses(self, nickname: str):
-        self._check_player_turn(nickname)
+        if not self._check_player_turn(nickname):
+            return
         property_idx = self._get_player(nickname).position
         owner = self.board.get_property_owner(property_idx)
         if nickname != owner:
@@ -205,7 +207,8 @@ class Monopoly:
             self.last_event = "can't build more than 5 houses"
 
     def buy_property(self, nickname):
-        self._check_player_turn(nickname)
+        if not self._check_player_turn(nickname):
+            return
         player = self._get_player(nickname)
         if player:
             property_idx = player.position
@@ -218,7 +221,8 @@ class Monopoly:
             self.last_event = "error: no player found"
 
     def roll_dice(self, nickname: str):
-        self._check_player_turn(nickname)
+        if not self._check_player_turn(nickname):
+            return
         player = self._get_player(nickname)
         if player and not self.has_rolled:
             new_position, dice = player.roll()
@@ -340,7 +344,8 @@ class Monopoly:
     def _check_player_turn(self, nickname):
         if nickname != self.current_turn_nickname:
             self.last_event = f"error: it's not {nickname}'s turn!"
-            return
+            return False
+        return True
 
     def _restart_game(self):
         if self.turn is None:
