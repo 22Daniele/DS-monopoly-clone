@@ -1,6 +1,5 @@
 from enum import Enum
 import pygame
-from checkpoint.checkpoint import *
 from model.monopoly import Monopoly
 from model.serializer_deserializer import serialize
 from view.monopoly_view import MonopolyView
@@ -36,7 +35,7 @@ class ServerController:
             case PlayerEvent.ROLL:
                 self._handle_roll(player)
             case PlayerEvent.END_TURN:
-                self._handle_end_turn()
+                self._handle_end_turn(player)
             case PlayerEvent.DISCONNECTION:
                 self._handle_disconnection(player)
             case PlayerEvent.RECONNECTION_TIMEOUT:
@@ -44,7 +43,7 @@ class ServerController:
         return serialize(self._game)
 
     def _handle_join(self, payload: dict):
-        nickname = payload.get("nickname")
+        nickname = payload.get("nickname", "unknown")
         if nickname in self._game.disconnected_players():
             self._game.reconnect_player(nickname)
         else:
@@ -59,8 +58,8 @@ class ServerController:
     def _handle_roll(self, nickname: str):
         self._game.roll_dice(nickname)
 
-    def _handle_end_turn(self):
-        self._game.next_turn()
+    def _handle_end_turn(self, nickname: str):
+        self._game.next_turn(nickname)
 
     def _handle_buy(self, nickname: str):
         self._game.buy_property(nickname)

@@ -183,12 +183,14 @@ class Monopoly:
     def running(self):
         return self.status == "PLAYING"
 
-    def next_turn(self):
+    def next_turn(self, nickname):
+        self._check_player_turn(nickname)
         self.turn = (self.turn + 1) % len(self.players)
         self.has_rolled = False
         self.last_event = f"{self.current_turn_nickname}: end turn"
 
     def build_houses(self, nickname: str):
+        self._check_player_turn(nickname)
         property_idx = self._get_player(nickname).position
         owner = self.board.get_property_owner(property_idx)
         if nickname != owner:
@@ -203,6 +205,7 @@ class Monopoly:
             self.last_event = "can't build more than 5 houses"
 
     def buy_property(self, nickname):
+        self._check_player_turn(nickname)
         player = self._get_player(nickname)
         if player:
             property_idx = player.position
@@ -215,6 +218,7 @@ class Monopoly:
             self.last_event = "error: no player found"
 
     def roll_dice(self, nickname: str):
+        self._check_player_turn(nickname)
         player = self._get_player(nickname)
         if player and not self.has_rolled:
             new_position, dice = player.roll()
@@ -284,10 +288,12 @@ class Monopoly:
             allowed_actions.append("roll")
         else:
             allowed_actions.append("end_turn")
-            if current_player.position in current_player.get_properties():
-                if current_player.can_afford(50):
-                    allowed_actions.append("build")
             pos = current_player.position
+            if pos in current_player.get_properties():
+                if current_player.can_afford(50):
+                    space: PropertySpace = self.board.get_space(pos)
+                    if space.houses < 5:
+                        allowed_actions.append("build")
             if self.board.is_property(pos):
                 owner = self.board.get_property_owner(pos)
                 if not owner:
@@ -330,6 +336,11 @@ class Monopoly:
             self.last_event = f"reconnected player {nickname}. " + self._restart_game()
         else:
             self.last_event = f"reconnected player: {nickname}. Waiting other disconnected players to reconnect..."
+
+    def _check_player_turn(self, nickname):
+        if nickname != self.current_turn_nickname:
+            self.last_event = f"error: it's not {nickname}'s turn!"
+            return
 
     def _restart_game(self):
         if self.turn is None:
