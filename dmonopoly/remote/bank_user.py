@@ -89,12 +89,12 @@ class MonopolyBank:
                 print(error)
 
     def run(self):
-        print("Server in esecuzione. In attesa di client...")
+        print("Server started. Waiting for clients...")
         try:
             while self._running:
                 time.sleep(1)
         except KeyboardInterrupt:
-            print("Chiusura del server in corso...")
+            print("Closing server...")
         finally:
             self._server.close()
 

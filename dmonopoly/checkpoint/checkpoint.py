@@ -17,7 +17,6 @@ def save_checkpoint(game, player_tokens):
         }
 
         with open(CHECKPOINT_FILE, "w") as f:
-            # json.dump scrive l'involucro formattato nel file
             json.dump(data_to_save, f)
     except IOError as e:
         print(f"[CHECKPOINT] An error occurred while saving the backup: {e}")
