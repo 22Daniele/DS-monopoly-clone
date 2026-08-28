@@ -91,11 +91,14 @@ class Connection:
 
     def __handle_incoming_messages(self):
         try:
+            self.__socket.settimeout(5.0)
             while not self.closed:
                 message = self.receive()
                 if message is None:
                     break
                 self.on_event('message', message)
+        except (socket.timeout, TimeoutError):
+            self.on_event('error', error=TimeoutError("Network partition detected (timeout)"))
         except Exception as e:
             if self.closed and isinstance(e, OSError):
                 return

@@ -34,6 +34,12 @@ class MonopolyBank:
     def on_message_received(self, event, payload, connection, error):
         if event == 'message':
             data = json.loads(payload)
+            if data.get("type") == "ping":
+                try:
+                    connection.send(json.dumps({"type": "pong"}))
+                except OSError:
+                    pass
+                return
             player_event = PlayerEvent(data["type"])
             if player_event == PlayerEvent.JOIN:
                 nickname = data["payload"]["nickname"]
@@ -155,10 +161,13 @@ class MonopolyUser:
         self._MAX_RECONNECT_TIME = 90.0
         self._rejected = False
         self._token = self._get_or_create_token()
+        self._last_ping_time = time.time()
 
     def on_network_message(self, event, payload, connection, error):
         if event == 'message':
             state_dict = json.loads(payload)
+            if state_dict.get("type") == "pong":
+                return
             if state_dict.get("status") == "REJECTED":
                 self._rejected = True
                 msg = state_dict.get("last_event")
@@ -181,6 +190,13 @@ class MonopolyUser:
         self._send_join()
         while self._running:
             current_time = time.time()
+            if not self._reconnecting and not self._client.closed:
+                if current_time - self._last_ping_time > 2.0:
+                    self._last_ping_time = current_time
+                    try:
+                        self._client.send(json.dumps({"type": "ping"}))
+                    except OSError:
+                        pass
             if self._reconnecting:
                 passed_time = current_time - self._reconnect_start_time
                 if passed_time > self._MAX_RECONNECT_TIME:
