@@ -116,6 +116,7 @@ class Client(Connection):
     def __init__(self, server_address, callback=None):
         sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
         sock.bind(address(port=0))
+        sock.settimeout(1.0)
         sock.connect(address(*server_address))
         super().__init__(sock, callback)
 

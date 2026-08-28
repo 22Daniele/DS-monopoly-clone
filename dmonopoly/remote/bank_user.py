@@ -120,9 +120,10 @@ class MonopolyBank:
             if self._game.status != "CLOSED":
                 if self._reconnect_timer:
                     self._reconnect_timer.cancel()
-                self._reconnect_timer = threading.Timer(30.0, self._on_reconnect_timeout)
+                timeout_duration = 90.0 if len(self._peers) == 0 else 30.0
+                self._reconnect_timer = threading.Timer(timeout_duration, self._on_reconnect_timeout)
                 self._reconnect_timer.start()
-                print("[SYSTEM] Reconnection timer of 30 seconds started...")
+                print(f"[SYSTEM] Reconnection timer of {timeout_duration} seconds started...")
         self._check_auto_shutdown()
 
     def _on_reconnect_timeout(self):
